@@ -1,1 +1,5 @@
-/target
+# Ignore Rust build directory
+target/
+
+# Ignore backend's Rust build directory
+backend/target/
