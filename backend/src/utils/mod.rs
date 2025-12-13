@@ -119,6 +119,20 @@ pub struct InvoiceHtlc {
     pub mpp_total_amt_msat: Option<u64>,
 }
 
+#[derive(Debug, Serialize)]
+pub struct ChannelSummary {
+    pub chan_id: ShortChannelID,
+    pub alias: Option<String>,
+    pub channel_state: ChannelState,
+    pub private: bool,
+    pub remote_balance: u64,
+    pub local_balance: u64,
+    pub capacity: u64,
+    pub last_update: Option<u64>,
+    pub uptime: Option<u64>,
+}
+
+
 
 pub mod serde_address {
     use super::*;
