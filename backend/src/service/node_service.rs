@@ -146,7 +146,7 @@ pub trait LightningClient: Send {
   /// Lists all invoices.
   async fn list_invoices(&self) -> Result<Vec<CustomInvoice>, LightningError>;
   /// Create invoice
-  async fn create_invoices(&self) -> Result<CustomInvoice, LightningError>;  
+  async fn create_invoices(&self, amount: u64, description: &str) -> Result<CustomInvoice, LightningError>;  
   // Get Invoice Details
   async fn get_invoice_details(
         &self,
@@ -275,5 +275,138 @@ async fn list_channels(&self) -> Result<Vec<ChannelSummary>, LightningError> {
 
     Ok(channels)
 }
+
+async fn list_invoices(&self) -> Result<Vec<CustomInvoice>, LightningError> {
+       let mut lightning_lnd = self.get_lnd_client_sub();
+       let request = ListInvoiceRequest {
+          pending_only: false,
+          ... Default::default()
+       }   
+
+       let response = lightning_lnd.list_invoices(request)
+                .await
+                .map_err(|err| LightningError::InvoiceError(err.to_string()))
+                .into_inner();
+        
+        let invoices = response.invoice.into_iter()
+            .map(|invoice| {
+              let state =
+                    match InvoiceState::try_from(invoice.state).unwrap_or(InvoiceState::Open) {
+                        InvoiceState::Open => InvoiceStatus::Open,
+                        InvoiceState::Settled => InvoiceStatus::Settled,
+                        InvoiceState::Canceled => InvoiceStatus::Failed,
+                        InvoiceState::Accepted => InvoiceStatus::Open,
+                    };
+              let htlcs = Some(
+                    invoice
+                        .htlcs
+                        .into_iter()
+                        .map(|htlc| InvoiceHtlc {
+                            chan_id: Some(htlc.chan_id),
+                            htlc_index: Some(htlc.htlc_index),
+                            amt_msat: Some(htlc.amt_msat),
+                            accept_time: Some(htlc.accept_time),
+                            resolve_time: Some(htlc.resolve_time),
+                            expiry_height: htlc.expiry_height.try_into().ok(),
+                            mpp_total_amt_msat: Some(htlc.mpp_total_amt_msat),
+                        })
+                        .collect(),
+                );
+
+              let features = Some(
+                    invoice
+                        .features
+                        .into_iter()
+                        .map(|(feature_bit, feature_entry)| {
+                            (
+                                feature_bit,
+                                Feature {
+                                    name: Some(feature_entry.name),
+                                    is_known: Some(feature_entry.is_known),
+                                    is_required: Some(feature_entry.is_required),
+                                },
+                            )
+                        })
+                        .collect(),
+                );
+             CustomInvoice {
+                    memo: invoice.memo,
+                    payment_hash: hex::encode(invoice.r_hash),
+                    payment_preimage: Some(hex::encode(invoice.r_preimage))
+                        .filter(|preimage_hex| !preimage_hex.is_empty())
+                        .unwrap_or_default(),
+                    value: invoice.value as u64,
+                    value_msat: invoice.value_msat as u64,
+                    creation_date: Some(invoice.creation_date),
+                    settle_date: Some(invoice.settle_date),
+                    payment_request: invoice.payment_request,
+                    expiry: Some(invoice.expiry as u64),
+                    state,
+                    is_keysend: Some(invoice.is_keysend),
+                    is_amp: Some(invoice.is_amp),
+                    payment_addr: Some(hex::encode(invoice.payment_addr))
+                        .filter(|addr_hex| !addr_hex.is_empty()),
+                    htlcs,
+                    features,
+                }
+            }).collect();
+
+          Ok(invoices)
+}
+
+async fn create_invoice(
+    &self,
+    amount: u64,
+    description: &str,
+) -> Result<CustomInvoice, LightningError> {
+    // 1. Get a Lightning (LND) gRPC client
+    let mut lightning_lnd = self.get_lnd_client_sub();
+
+    // 2. Convert amount to millisatoshis (LND expects msats)
+    let value_msat = (amount * 1_000) as i64;
+
+    // 3. Build the invoice request
+    let invoice_request = Invoice {
+        value_msat,
+        memo: description.to_string(),
+        ..Default::default()
+    };
+
+    // 4. Create the invoice on LND
+    let response = lightning_lnd
+        .add_invoice(tonic::Request::new(invoice_request))
+        .await
+        .map_err(|err| LightningError::InvoiceError(err.to_string()))?;
+
+    let invoice = response.into_inner();
+
+    // 5. Parse and validate the BOLT11 invoice string
+    let _bolt11 = Bolt11Invoice::from_str(&invoice.payment_request)
+        .map_err(|e| LightningError::InvoiceError(e.to_string()))?;
+
+    // 6. Map LND invoice → domain invoice
+    Ok(CustomInvoice {
+        memo: invoice.memo,
+        payment_hash: hex::encode(invoice.r_hash),
+        payment_preimage: hex::encode(invoice.r_preimage)
+            .is_empty()
+            .then(|| None)
+            .unwrap_or_else(|| Some(hex::encode(invoice.r_preimage))),
+        value: invoice.value as u64,
+        value_msat: invoice.value_msat as u64,
+        creation_date: Some(invoice.creation_date),
+        settle_date: Some(invoice.settle_date),
+        payment_request: invoice.payment_request,
+        expiry: Some(invoice.expiry as u64),
+        state: invoice.state(),
+        is_keysend: Some(invoice.is_keysend),
+        is_amp: Some(invoice.is_amp),
+        payment_addr: (!invoice.payment_addr.is_empty())
+            .then(|| hex::encode(invoice.payment_addr)),
+        htlcs: None,
+        features: None,
+    })
+}
+
 
 }
