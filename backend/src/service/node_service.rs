@@ -8,6 +8,13 @@ use tonic_lnd::{
     Payment,
   }
 }
+use crate::{
+  error::LightningError
+  utils::{
+    self, NodeInfo, NodeId, CustomInvoice, PaymentType, InvoiceStatus, InvoiceHtlc, 
+    ChanInfoRequest, ChannelState,
+  }
+}
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 use serde::{Deserialize, Serialize};
 use lightning_invoice::{Bolt11InvoiceDescription, Bolt11Invoice};
@@ -161,7 +168,112 @@ pub trait LightningClient: Send {
 
 #[async_trait]
 impl LightningClient for LndNode {
-   asyn fn get_node_info(&self) -> &NodeInfo {
-      self.info;
+   async fn get_node_info(&self) -> &NodeInfo {
+      self.info
    }
+
+   async fn get_network(&self) -> Result<Network, LightningError> {
+         let mut client = self.client.lock().await;
+         let info = client.lightning()
+              .get_info()
+              .await
+              .map_err(|err| LightningError::GetInfoError(err.to_string()))?
+              .into_inner();
+          if info.chain.is_empty() {
+            return err(LightningError::ValidationError(format!(
+              "{}  is not connected to any chain",
+              self.get_info()
+            )));
+          } else if info.chain.len() > 1 {
+             return err(LightningError::ValidationError(format!(
+              "{} is connected to more than one chain: {:?}",
+              self.get_info(),
+              info.chains.iter().map(|c| c.chain.to_string())
+            )));
+          }
+          Ok(Network::from_str(match info.chain[0].network.as_str(){
+            "mainnet" => "bitcoin",
+            x => x
+          }).map_err(|err| LightningError::ValidationError(err.to_string()))?)
+   }
+
+async fn list_channels(&self) -> Result<Vec<ChannelSummary>, LightningError> {
+    let mut lightning_lnd = self.get_lnd_client_sub();
+
+    let channel_list = lightning_lnd
+        .list_channels(ListChannelsRequest::default())
+        .await
+        .map_err(|err| LightningError::ChannelError(err.to_string()))?
+        .into_inner();
+
+    let mut last_updates: HashMap<u64, u64> = HashMap::new();
+
+    for channel in &channel_list.channels {
+        // fetch only public channels
+        if !channel.private {
+            match lightning_lnd
+                .get_chan_info(ChanInfoRequest {
+                    chan_id: channel.chan_id,
+                })
+                .await
+            {
+                Ok(response) => {
+                    let chan_info = response.into_inner();
+                    let mut last_max_update = 0u64;
+
+                    if let Some(node1_policy) = &chan_info.node1_policy {
+                        last_max_update =
+                            last_max_update.max(node1_policy.last_update as u64);
+                    }
+
+                    if let Some(node2_policy) = &chan_info.node2_policy {
+                        last_max_update =
+                            last_max_update.max(node2_policy.last_update as u64);
+                    }
+
+                    if last_max_update > 0 {
+                        last_updates.insert(channel.chan_id, last_max_update);
+                    }
+                }
+                Err(e) => {
+                    // Channel may not be announced yet
+                    tracing::debug!(
+                        "Failed to get channel info for {}: {}",
+                        channel.chan_id,
+                        e
+                    );
+                }
+            }
+        }
+    }
+
+    let channels: Vec<ChannelSummary> = channel_list
+        .channels
+        .into_iter()
+        .map(|channel| {
+            let channel_state = if channel.active {
+                ChannelState::Active
+            } else {
+                ChannelState::Disabled
+            };
+
+            let last_update = last_updates.get(&channel.chan_id).copied();
+
+            ChannelSummary {
+                chan_id: ShortChannelID(channel.chan_id),
+                alias: None,
+                channel_state,
+                private: channel.private,
+                remote_balance: channel.remote_balance.try_into().unwrap_or(0),
+                local_balance: channel.local_balance.try_into().unwrap_or(0),
+                capacity: channel.capacity.try_into().unwrap_or(0),
+                last_update,
+                uptime: Some(channel.uptime as u64),
+            }
+        })
+        .collect();
+
+    Ok(channels)
+}
+
 }

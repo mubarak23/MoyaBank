@@ -132,6 +132,17 @@ pub struct ChannelSummary {
     pub uptime: Option<u64>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub enum ChannelState {
+    Opening, 
+    #[default]
+    Active, 
+    Disabled, 
+    Closing, 
+    Closed,  
+    Failed,  
+}
+
 
 
 pub mod serde_address {
