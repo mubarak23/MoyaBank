@@ -4,6 +4,7 @@ use tonic_lnd::{
     Invoice, GetInfoRequest, ListInvoiceRequest, ListPaymentsRequest,
     invoice::InvoiceState,
     payment::PaymentStatus, 
+    SendRequest,
     NodeInfo,
     Payment,
   }
@@ -148,17 +149,11 @@ pub trait LightningClient: Send {
   /// Create invoice
   async fn create_invoices(&self, amount: u64, description: &str) -> Result<CustomInvoice, LightningError>;  
   // Get Invoice Details
-  async fn get_invoice_details(
-        &self,
-        payment_hash: &PaymentHash,
-    ) -> Result<CustomInvoice, LightningError>;
+  async fn get_invoice_details(&self, payment_hash: &PaymentHash) -> Result<CustomInvoice, LightningError>;
     /// Gets the onchain wallet balance in satoshis.
     async fn get_wallet_balance(&self) -> Result<u64, LightningError>;
   
-  async fn pay_invoice(
-    &self,
-    payment_request: &str,
-  ) -> Result<Payment, LightningError>   
+  async fn pay_invoice(&self, payment_request: &str) -> Result<Payment, LightningError>;
 
     // async fn get_channel_info(
     //     &self,
@@ -197,7 +192,7 @@ impl LightningClient for LndNode {
           }).map_err(|err| LightningError::ValidationError(err.to_string()))?)
    }
 
-async fn list_channels(&self) -> Result<Vec<ChannelSummary>, LightningError> {
+  async fn list_channels(&self) -> Result<Vec<ChannelSummary>, LightningError> {
     let mut lightning_lnd = self.get_lnd_client_sub();
 
     let channel_list = lightning_lnd
@@ -276,7 +271,7 @@ async fn list_channels(&self) -> Result<Vec<ChannelSummary>, LightningError> {
     Ok(channels)
 }
 
-async fn list_invoices(&self) -> Result<Vec<CustomInvoice>, LightningError> {
+ async fn list_invoices(&self) -> Result<Vec<CustomInvoice>, LightningError> {
        let mut lightning_lnd = self.get_lnd_client_sub();
        let request = ListInvoiceRequest {
           pending_only: false,
@@ -406,6 +401,91 @@ async fn create_invoice(
         htlcs: None,
         features: None,
     })
+}
+
+async fn get_invoice_details(&self, payment_hash: &PaymentHash) -> Result<CustomInvoice, LightningError> {
+    let client = self.get_lnd_client_sub();
+
+    let request = tonic_lnd::lnrpc::PaymentHash {
+        r_hash: payment_hash.0.to_vec(),
+        ..Default::default()
+    };
+
+    let response = client.add_invoice.lookup_invoice(request)
+            .await.map_err(|e| LightningError::InvoiceError(err.to_string()))
+            .into_inner();
+    let state = match InvoiceState::try_from(response.state).unwrap_or(InvoiceState::Open) {
+            InvoiceState::Open => InvoiceStatus::Open,
+            InvoiceState::Settled => InvoiceStatus::Settled,
+            InvoiceState::Canceled => InvoiceStatus::Failed,
+            InvoiceState::Accepted => InvoiceStatus::Open,
+        };
+    
+    Ok(CustomInvoice {
+            memo: response.memo,
+            payment_hash: hex::encode(response.r_hash),
+            payment_preimage: Some(hex::encode(response.r_preimage))
+                .filter(|preimage_hex| !preimage_hex.is_empty())
+                .unwrap_or_default(),
+            value: response.value as u64,
+            value_msat: response.value_msat as u64,
+            creation_date: Some(response.creation_date),
+            settle_date: Some(response.settle_date),
+            payment_request: response.payment_request,
+            expiry: Some(response.expiry as u64),
+            state,
+            is_keysend: Some(response.is_keysend),
+            is_amp: Some(response.is_amp),
+            payment_addr: Some(hex::encode(response.payment_addr))
+                .filter(|addr_hex| !addr_hex.is_empty()),
+            htlcs: None,
+            features: None,
+        })   
+}
+
+async fn pay_invoice(&self, payment_request: &str) -> Result<Payment, LightningError> {
+      let client = self.get_lnd_client_sub();
+
+      let bolt11 = Bolt11Invoice::from_str(payment_request)
+          .map_err(|err| LightningError::InvoiceError(err.to_string()))?;
+
+      let payment_request = SendRequest {
+        payment_request: payment_request,
+        timeout_second: 30,
+        fee_limit_sat: 1000,
+        ..Default::default()
+      };
+
+      // pay the invoice
+      let response = client.send_payment_sync(Request::new(payment_request)).await
+                  .map_err(|err| LightningError::PaymentError(err.to_string()))?
+                  .into_inner();
+      
+      // check if payment was success
+      if response.payment_error.is_some() && !response.payment_error.is_empty() {
+        return Err(LightningError::PaymentError(
+            response.payment_error,
+        ));
+    }
+    Ok(response)
+  }
+
+  async fn get_wallet_balance(&self) -> Result<u64, LightningError> {
+        let mut client = self.get_lightning_stub().await;
+
+        let request = tonic_lnd::lnrpc::WalletBalanceRequest {};
+
+        let response = client
+            .wallet_balance(request)
+            .await
+            .map_err(|e| {
+                LightningError::GetInfoError(format!("Failed to get wallet balance: {e}"))
+            })?
+            .into_inner();
+
+        // Return confirmed balance in satoshis
+        Ok(response.confirmed_balance as u64)
+    }
 }
 
 
