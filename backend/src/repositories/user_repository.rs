@@ -39,6 +39,24 @@ impl<`a> UserRepository <`a> {
         Ok(count.count > 0)
     }
 
+    /// Checks if an email already exists in the system.
+    ///
+    /// # Arguments
+    /// * `email` - Email to check
+    ///
+    /// # Returns
+    /// `true` if a user with this email exists (and is not deleted)
+    pub async fn email_exists(&self, email: &str) -> Result<bool> {
+        let count = sqlx::query!(
+            "SELECT COUNT(*) as count FROM users WHERE email = ? AND is_deleted = 0",
+            email
+        )
+        .fetch_one(self.pool)
+        .await?;
+
+        Ok(count.count > 0)
+    }
+
 
     /// Retrieves a user by their username.
     ///

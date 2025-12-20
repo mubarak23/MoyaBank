@@ -40,6 +40,12 @@ pub struct CreateUser {
     pub role_id: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserWithAccount {
+    pub user: User,
+    pub account: Account,
+}
+
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Account {

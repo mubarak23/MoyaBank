@@ -31,7 +31,7 @@ impl<`a> RoleRepository <`a> {
     ///
     /// # Returns
     /// `true` if a role with this name exists (and is not deleted)
-    pub async fn role_exists(&self, email: &str) -> Result<bool> {
+    pub async fn role_exists(&self, name: &str) -> Result<bool> {
         let count = sqlx::query!(
           "SELECT COUNT(*) as count FROM roles WHERE name = ? AND is_deleted = 0",
           name
@@ -40,6 +40,24 @@ impl<`a> RoleRepository <`a> {
         .await?;
 
         Ok(count.count > 0)
+    }
+
+    /// Checks if an role already exists in the system.
+    ///
+    /// # Arguments
+    /// * `role_id` - User id to check
+    ///
+    /// # Returns
+    /// `true` if a role with this name exists (and is not deleted)
+    pub async fn role_exists(&self, role_id: &str) -> Result<bool> {
+        let count = sqlx::query!(
+          "SELECT COUNT(*) as count FROM roles WHERE name = ? AND is_deleted = 0",
+          name
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(!count.count > 0)
     }
 
 

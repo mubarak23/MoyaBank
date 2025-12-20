@@ -85,4 +85,23 @@ impl<`a> AccountRepository <`a> {
     }
 
 
+    /// Checks if a account already exists in the system.
+    ///
+    /// # Arguments
+    /// * `user_id` - user_id to check
+    ///
+    /// # Returns
+    /// `true` if a user with this username exists (and is not deleted)
+    pub async fn account_exists(&self, user_id: &str) -> Result<bool> {
+        let count = sqlx::query!(
+            "SELECT COUNT(*) as count FROM accounts WHERE user_id = ?",
+            user_id
+        )
+        .fetch_one(self.pool)
+        .await?;
+
+        Ok(count.count > 0)
+    }
+
+
 }
