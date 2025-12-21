@@ -8,7 +8,6 @@ pub struct Config {
   pub max_connections: u32,
   pub jwt_secret: String,
   pub jwt_expires_in_seconds: u64, 
-  pub database_url: String,
   pub server_port: u16,
   pub encryption_key: String,
   pub acquire_timeout_seconds: u64,

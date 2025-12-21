@@ -3,8 +3,10 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 use sqlx::FromRow;
 use validator::Validate;
+use sqlx::types::BigDecimal;
 
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -47,26 +49,19 @@ pub struct UserWithAccount {
 }
 
 
+#[serde_as] 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Account {
     pub id: String,
     pub user_id: String,
-    pub balance: Number,
+    #[serde_as(as = "DisplayFromStr")]
+    pub balance: BigDecimal,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub is_deleted: bool,
     pub deleted_at: Option<DateTime<Utc>>,
 }
-
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
-pub struct CreateAccount {
-    #[validate(length(min = 1, message = "User ID is required"))]
-    pub user_id: String,
-    #[validate(length(min = 1, message = "Balance is required"))]
-    pub balance: Number,
-}
-
 
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -86,28 +81,30 @@ pub struct CreateRole {
     pub name: String,
 }
 
+#[serde_as] 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Transaction {
     pub id: String,
     pub user_id: String,
     pub invoice: String,
-    pub amount: Number,
+    #[serde_as(as = "DisplayFromStr")]
+    pub amount: BigDecimal,
     pub payment_hash: String,
     pub payment_status: String,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
-pub struct CreateTransaction {
-    #[validate(length(min = 1, message = "User ID is required"))]
-    pub user_id: String,
-    #[validate(length(min = 1, message = "Invoice is required"))]
-    pub invoice: String,
-    #[validate(length(min = 1, message = "Amount is required"))]
-    pub amount: Number,
-    #[validate(length(min = 1, message = "Payment Hash is required"))]
-    pub payment_hash: String,
-    #[validate(length(min = 1, message = "Payment Status is required"))]
-    pub payment_status: String,
-}
+// #[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+// pub struct CreateTransaction {
+//     #[validate(length(min = 1, message = "User ID is required"))]
+//     pub user_id: String,
+//     #[validate(length(min = 1, message = "Invoice is required"))]
+//     pub invoice: String,
+//     #[validate(length(min = 1, message = "Amount is required"))]
+//     pub amount: BigDecimal,
+//     #[validate(length(min = 1, message = "Payment Hash is required"))]
+//     pub payment_hash: String,
+//     #[validate(length(min = 1, message = "Payment Status is required"))]
+//     pub payment_status: String,
+// }

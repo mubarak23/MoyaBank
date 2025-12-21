@@ -1,86 +1,81 @@
-// DB Repository for user management Operations
+// DB Repository for user management operations
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use sqlx::SqlitePool;
-use crate::{
-  database::models::User,
-  common::PaginationFilter
+use sqlx::{PgPool, postgres::PgPoolOptions};
+
+use crate::db::models::User;
+
+pub struct UserRepository<'a> {
+    /// Shared Postgres connection pool
+    pool: &'a PgPool,
 }
 
-
-pub struct UserRepository<`a> {
-  // Shared Connection Pool
-  pool: &'a SqlitePool,
-}
-
-impl<`a> UserRepository <`a> {
-
-  // New connection instance
-  pub fn new(pool: &`a SqlitePool) -> Self {
-    Self { pool }
-  }
+impl<'a> UserRepository<'a> {
+    /// Create a new repository instance
+    pub fn new(pool: &'a PgPool) -> Self {
+        Self { pool }
+    }
 
     /// Checks if a username already exists in the system.
     ///
-    /// # Arguments
-    /// * `username` - Username to check
-    ///
-    /// # Returns
-    /// `true` if a user with this username exists (and is not deleted)
+    /// Returns `true` if a user with this username exists and is not deleted.
     pub async fn username_exists(&self, username: &str) -> Result<bool> {
-        let count = sqlx::query!(
-            "SELECT COUNT(*) as count FROM users WHERE username = ? AND is_deleted = 0",
+        let result = sqlx::query!(
+            r#"
+            SELECT COUNT(*)::BIGINT AS count
+            FROM users
+            WHERE username = $1
+              AND is_deleted = false
+            "#,
             username
         )
         .fetch_one(self.pool)
         .await?;
 
-        Ok(count.count > 0)
+        Ok(result.count.unwrap_or(0) > 0)
     }
 
     /// Checks if an email already exists in the system.
     ///
-    /// # Arguments
-    /// * `email` - Email to check
-    ///
-    /// # Returns
-    /// `true` if a user with this email exists (and is not deleted)
+    /// Returns `true` if a user with this email exists and is not deleted.
     pub async fn email_exists(&self, email: &str) -> Result<bool> {
-        let count = sqlx::query!(
-            "SELECT COUNT(*) as count FROM users WHERE email = ? AND is_deleted = 0",
+        let result = sqlx::query!(
+            r#"
+            SELECT COUNT(*)::BIGINT AS count
+            FROM users
+            WHERE email = $1
+              AND is_deleted = false
+            "#,
             email
         )
         .fetch_one(self.pool)
         .await?;
 
-        Ok(count.count > 0)
+        Ok(result.count.unwrap_or(0) > 0)
     }
-
 
     /// Retrieves a user by their username.
     ///
-    /// # Arguments
-    /// * `username` - Username to search for
-    ///
-    /// # Returns
-    /// `Some(User)` if found and active, `None` otherwise
+    /// Returns `Some(User)` if found and active, `None` otherwise.
     pub async fn get_user_by_username(&self, username: &str) -> Result<Option<User>> {
         let user = sqlx::query_as!(
-          User,
-          r#"
+            User,
+            r#"
             SELECT
-            id as "id!",
-            role_id as "role_id!",
-            username as "username!",
-            password_hash as "password_hash!",
-            email as "email!",
-            is_active as "is_active!",
-            created_at as "created_at!: DateTime<Utc>",
-            updated_at as "updated_at!: DateTime<Utc>",
-            is_deleted as "is_deleted!",
-            deleted_at as "deleted_at?: DateTime<Utc>"
-            FROM users WHERE username = ? AND is_deleted = 0
+                id,
+                role_id,
+                username,
+                password_hash,
+                email,
+                is_active,
+                created_at,
+                updated_at,
+                is_deleted,
+                deleted_at
+            FROM users
+            WHERE username = $1
+              AND is_deleted = false
             "#,
             username
         )
@@ -90,29 +85,27 @@ impl<`a> UserRepository <`a> {
         Ok(user)
     }
 
-    /// Retrieves a user by their user id.
+    /// Retrieves a user by their user ID.
     ///
-    /// # Arguments
-    /// * `user id` - id  to search for
-    ///
-    /// # Returns
-    /// `Some(User)` if found and active, `None` otherwise
+    /// Returns `Some(User)` if found and active, `None` otherwise.
     pub async fn get_user_by_id(&self, user_id: &str) -> Result<Option<User>> {
         let user = sqlx::query_as!(
-          User,
-          r#"
+            User,
+            r#"
             SELECT
-            id as "id!",
-            role_id as "role_id!",
-            username as "username!",
-            password_hash as "password_hash!",
-            email as "email!",
-            is_active as "is_active!",
-            created_at as "created_at!: DateTime<Utc>",
-            updated_at as "updated_at!: DateTime<Utc>",
-            is_deleted as "is_deleted!",
-            deleted_at as "deleted_at?: DateTime<Utc>"
-            FROM users WHERE id = ? AND is_deleted = 0
+                id,
+                role_id,
+                username,
+                password_hash,
+                email,
+                is_active,
+                created_at,
+                updated_at,
+                is_deleted,
+                deleted_at
+            FROM users
+            WHERE id = $1
+              AND is_deleted = false
             "#,
             user_id
         )
@@ -121,25 +114,4 @@ impl<`a> UserRepository <`a> {
 
         Ok(user)
     }
-
-    /// Checks if an email already exists in the system.
-    ///
-    /// # Arguments
-    /// * `email` - Email to check
-    ///
-    /// # Returns
-    /// `true` if a user with this email exists (and is not deleted)
-    pub async fn email_exists(&self, email: &str) -> Result<bool> {
-        let count = sqlx::query!(
-          "SELECT COUNT(*) as count FROM users WHERE email = ? AND is_deleted = 0",
-          email
-        )
-        .fetch_one(&self.pool)
-        .await?;
-
-        Ok(count.count > 0)
-    }
-
-
-
 }

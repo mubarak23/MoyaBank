@@ -2,27 +2,27 @@
 use anyhow::Result;
 use crate::config::Config;
 use std::time::Duration;
-use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
+use sqlx::{PgPool, postgres::PgPoolOptions};
 
+pub mod models;
 
 pub struct Database {
-  pub pool: SqlitePool,
+  pub pool: PgPool,
 }
 
 impl Database {
   pub async fn new(config: Config) -> Result<Self> {
       let database_url = &config.database_url;
 
-      let pool = SqlitePoolOptions::new()
-          .max_connections(config.max_connections)
-          .acquire_timeout(Duration::from_sec(config.acquire_timeout))
-          .connect(database_url)
-          .await?;
+      let pool: PgPool = PgPoolOptions::new()
+    .max_connections(10)
+    .connect(&database_url)
+    .await?;
       
      Ok(Database{ pool })   
   }
 
-  pub fn pool (&self) -> &SqlitePool {
+  pub fn pool (&self) -> &PgPool {
     &self.pool 
   }
 

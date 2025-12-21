@@ -1,7 +1,12 @@
 //! Main entry point for Moya Bank
 
+mod api;
+mod db;
+mod repositories;
+mod service;
 mod common;
 mod errors;
+mod config;
 
 use axum::{Extension, Router, response::Json, routing::get};
 use crate::common::common::ApiResponse;
@@ -17,7 +22,8 @@ async fn main() {
     init();
 
     let app = Router::new()
-    .route("/", get(handle_root));
+    .route("/", get(handle_root))
+    .nest("/api/user", api::user::routes::user_router().await);
 
     let bind_address = format!("0.0.0.0:{}", 3004);
     let listener = tokio::net::TcpListener::bind(bind_address).await.unwrap();
