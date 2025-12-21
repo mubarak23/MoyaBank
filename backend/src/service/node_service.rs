@@ -8,14 +8,22 @@ use tonic_lnd::{
     NodeInfo,
     Payment,
   }
-}
+};
+use bitcoin::PublicKey;
+use tempfile::NamedTempFile;
 use crate::{
-  error::LightningError
+  error::LightningError,
   utils::{
     self, NodeInfo, NodeId, CustomInvoice, PaymentType, InvoiceStatus, InvoiceHtlc, 
     ChanInfoRequest, ChannelState,
-  }
+  };
 }
+use tokio::{
+    fs::File,
+    io::{AsyncReadExt, Error},
+    sync::Mutex,
+    time::sleep,
+};
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Identity};
 use serde::{Deserialize, Serialize};
 use lightning_invoice::{Bolt11InvoiceDescription, Bolt11Invoice};
@@ -26,7 +34,7 @@ use serde::{Deserialize, Serialize};
 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum LndConnection {
+pub struct LndConnection {
   #[serde(with = "utils::serde_node_id")]
   pub id: NodeId,
   #[serde(with = "utils::serde_address")]
@@ -275,7 +283,7 @@ impl LightningClient for LndNode {
        let mut lightning_lnd = self.get_lnd_client_sub();
        let request = ListInvoiceRequest {
           pending_only: false,
-          ... Default::default()
+          ..Default::default()
        }   
 
        let response = lightning_lnd.list_invoices(request)
@@ -488,5 +496,3 @@ async fn pay_invoice(&self, payment_request: &str) -> Result<Payment, LightningE
     }
 }
 
-
-}
