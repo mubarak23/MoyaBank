@@ -1,13 +1,11 @@
-
 //! Rust structs that represent database table mappings.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
 use sqlx::FromRow;
-use validator::Validate;
 use sqlx::types::BigDecimal;
-
+use validator::Validate;
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct User {
@@ -48,8 +46,12 @@ pub struct UserWithAccount {
     pub account: Account,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewRole {
+    pub role: Role,
+}
 
-#[serde_as] 
+#[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Account {
     pub id: String,
@@ -62,7 +64,6 @@ pub struct Account {
     pub is_deleted: bool,
     pub deleted_at: Option<DateTime<Utc>>,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Role {
@@ -81,7 +82,7 @@ pub struct CreateRole {
     pub name: String,
 }
 
-#[serde_as] 
+#[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Transaction {
     pub id: String,

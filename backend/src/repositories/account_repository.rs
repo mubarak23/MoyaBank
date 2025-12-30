@@ -1,24 +1,20 @@
 // DB Repository for account management Operations
 
+use crate::db::models::Account;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use crate::db::models::Account;
 use sqlx::PgPool;
 
-
 pub struct AccountRepository<'a> {
-  // Shared Connection Pool
-  pool: &'a PgPool,
+    // Shared Connection Pool
+    pool: &'a PgPool,
 }
 
-
-
-impl<'a> AccountRepository <'a> {
-
-  // New connection instance
-  pub fn new(pool: &'a PgPool) -> Self {
-    Self { pool }
-  }
+impl<'a> AccountRepository<'a> {
+    // New connection instance
+    pub fn new(pool: &'a PgPool) -> Self {
+        Self { pool }
+    }
 
     /// Retrieves an account by their id.
     ///
@@ -27,10 +23,10 @@ impl<'a> AccountRepository <'a> {
     ///
     /// # Returns
     /// 'Some(Account)' if found and active, 'None' otherwise
-pub async fn get_account_by_id(&self, account_id: &str) -> Result<Option<Account>> {
-    let account = sqlx::query_as!(
-        Account,
-        r#"
+    pub async fn get_account_by_id(&self, account_id: &str) -> Result<Option<Account>> {
+        let account = sqlx::query_as!(
+            Account,
+            r#"
         SELECT
             id as "id!",
             user_id as "user_id!",
@@ -44,15 +40,13 @@ pub async fn get_account_by_id(&self, account_id: &str) -> Result<Option<Account
         WHERE id = $1
           AND is_deleted = false
         "#,
-        account_id
-    )
-    .fetch_optional(self.pool)
-    .await?;
+            account_id
+        )
+        .fetch_optional(self.pool)
+        .await?;
 
-    Ok(account)
-}
-
-
+        Ok(account)
+    }
 
     /// Retrieves an account by their user_id.
     ///
@@ -62,7 +56,7 @@ pub async fn get_account_by_id(&self, account_id: &str) -> Result<Option<Account
     /// # Returns
     /// 'Some(Account)' if found and active, 'None' otherwise
     pub async fn get_accoount_by_user_id(&self, user_id: &str) -> Result<Option<Account>> {
-       let account = sqlx::query_as!(
+        let account = sqlx::query_as!(
             Account,
             r#"
             SELECT
@@ -86,7 +80,6 @@ pub async fn get_account_by_id(&self, account_id: &str) -> Result<Option<Account
         Ok(account)
     }
 
-
     /// Checks if a account already exists in the system.
     ///
     /// # Arguments
@@ -109,8 +102,4 @@ pub async fn get_account_by_id(&self, account_id: &str) -> Result<Option<Account
 
         Ok(result.count.unwrap_or(0) > 0)
     }
-
-
-
-
 }
