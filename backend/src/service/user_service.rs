@@ -1,27 +1,24 @@
-// User Service Logic 
+// User Service Logic
 //! Handles all account-related business operations
 
-use sqlx::PgPool;
-use uuid::Uuid;
-use validator::Validate;
-use crate::errors::{ServiceError, ServiceResult};
 use crate::db::models::UserWithAccount;
-use crate::db::models::{
-  User, CreateUser, Role, CreateRole, Account
-};
-use crate::repositories::user_repository::UserRepository;
+use crate::db::models::{Account, CreateRole, CreateUser, Role, User};
+use crate::errors::{ServiceError, ServiceResult};
 use crate::repositories::account_repository::AccountRepository;
 use crate::repositories::role_repository::RoleRepository;
+use crate::repositories::user_repository::UserRepository;
+use sqlx::PgPool;
 use sqlx::types::BigDecimal;
+use uuid::Uuid;
+use validator::Validate;
 
 // Service layer for User related Operation
 pub struct UserService<'a> {
-  pool: &'a PgPool,
+    pool: &'a PgPool,
 }
 
-
-impl <'a> UserService<'a> {
-     /// Creates a new AccountService instance.
+impl<'a> UserService<'a> {
+    /// Creates a new AccountService instance.
     ///
     /// # Arguments
     /// * 'pool' - Reference to SQLite connection pool
@@ -44,50 +41,51 @@ impl <'a> UserService<'a> {
     /// - Missing required roles
     /// - Business rule violations
     pub async fn create_user(&self, create_user: CreateUser) -> ServiceResult<UserWithAccount> {
-      // input validation
-      if let Err(validation_errors) = create_user.validate() {
-          let error_messages: Vec<String> = validation_errors
-              .field_errors()
-              .into_iter()
-              .flat_map(|(field, errors)| {
-                  errors.iter().map(move |error| {
-                      format!(
+        // input validation
+        if let Err(validation_errors) = create_user.validate() {
+            let error_messages: Vec<String> = validation_errors
+                .field_errors()
+                .into_iter()
+                .flat_map(|(field, errors)| {
+                    errors.iter().map(move |error| {
+                        format!(
                             "{}: {}",
                             field,
                             error.message.as_ref().unwrap_or(&"Invalid value".into())
                         )
-                  })
-              }).collect();
-          return Err(ServiceError::validation(error_messages.join(", ")));
-      }
-      
-      let user_repo = UserRepository::new(self.pool);
-      let account_repo = AccountRepository::new(self.pool);
-      let role_repo = RoleRepository::new(self.pool);
+                    })
+                })
+                .collect();
+            return Err(ServiceError::validation(error_messages.join(", ")));
+        }
 
-       // Check if username already exists
-       if user_repo.username_exists(&create_user.username).await? {
-          return Err(ServiceError::already_exists(
-            "User with the username Exist",
-            &create_user.username
-          ))
-       }
+        let user_repo = UserRepository::new(self.pool);
+        let account_repo = AccountRepository::new(self.pool);
+        let role_repo = RoleRepository::new(self.pool);
 
-      // Check if username already exists
-       if user_repo.email_exists(&create_user.email).await? {
-          return Err(ServiceError::already_exists(
-            "User with the email Exist",
-            &create_user.email
-          ))
-       }
+        // Check if username already exists
+        if user_repo.username_exists(&create_user.username).await? {
+            return Err(ServiceError::already_exists(
+                "User with the username Exist",
+                &create_user.username,
+            ));
+        }
 
-      // Check if role id does not exists
-       if role_repo.role_exists(&create_user.role_id).await? {
-          return Err(ServiceError::already_exists(
-            "Role does not exist",
-            &create_user.role_id
-          ))
-       }
+        // Check if username already exists
+        if user_repo.email_exists(&create_user.email).await? {
+            return Err(ServiceError::already_exists(
+                "User with the email Exist",
+                &create_user.email,
+            ));
+        }
+
+        // Check if role id does not exists
+        if !role_repo.role_exists(&create_user.role_id).await? {
+            return Err(ServiceError::already_exists(
+                "Role does not exist",
+                &create_user.role_id,
+            ));
+        }
 
         // Start a transaction for atomic account + user creation
         let mut tx = self
@@ -96,15 +94,14 @@ impl <'a> UserService<'a> {
             .await
             .map_err(|e| ServiceError::Database { source: e.into() })?;
 
-
-       // create the user
+        // create the user
         let password_hash = bcrypt::hash(&create_user.password, bcrypt::DEFAULT_COST)
             .map_err(|e| ServiceError::validation(format!("Password hashing failed: {e}")))?;
-       
-      let user_id = Uuid::now_v7().to_string();
-      let user = sqlx::query_as!(
-          User,
-          r#"
+
+        let user_id = Uuid::now_v7().to_string();
+        let user = sqlx::query_as!(
+            User,
+            r#"
           INSERT INTO users (
               id,
               role_id,
@@ -128,18 +125,17 @@ impl <'a> UserService<'a> {
               is_deleted as "is_deleted!",
               deleted_at as "deleted_at?: chrono::DateTime<chrono::Utc>"
           "#,
-          user_id,
-          create_user.role_id,
-          create_user.username,
-          password_hash,
-          create_user.email,
-          true
-      )
-      .fetch_one(&mut *tx)
-      .await
-      .map_err(|e| ServiceError::Database { source: e.into() })?;
-      
-        
+            user_id,
+            create_user.role_id,
+            create_user.username,
+            password_hash,
+            create_user.email,
+            true
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|e| ServiceError::Database { source: e.into() })?;
+
         let account_id = Uuid::now_v7().to_string();
         // Insert the account into the database
         let account = sqlx::query_as!(
@@ -164,20 +160,16 @@ impl <'a> UserService<'a> {
         )
         .fetch_one(&mut *tx)
         .await
-        .map_err(|e| {
-            ServiceError::Database { source: e.into() }
-        })?;
-      
+        .map_err(|e| ServiceError::Database { source: e.into() })?;
+
         // Commit the transaction
         tx.commit()
             .await
             .map_err(|e| ServiceError::Database { source: e.into() })?;
-        
-       //  &user.password_hash = "";
+
+        //  &user.password_hash = "";
         let user_with_account = UserWithAccount { account, user };
 
         Ok(user_with_account)
-
     }
-
 }

@@ -1,25 +1,20 @@
 // DB Repository for role management Operations
 
+use crate::db::models::Role;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use sqlx::{PgPool, postgres::PgPoolOptions};
-use crate::db::models::Role;
-
 
 pub struct RoleRepository<'a> {
-  // Shared Connection Pool
-  pool: &'a PgPool,
+    // Shared Connection Pool
+    pool: &'a PgPool,
 }
 
-
-
-impl<'a> RoleRepository <'a> {
-
-  // New connection instance
-  pub fn new(pool: &'a PgPool) -> Self {
-    Self { pool }
-  }
-
+impl<'a> RoleRepository<'a> {
+    // New connection instance
+    pub fn new(pool: &'a PgPool) -> Self {
+        Self { pool }
+    }
 
     /// Checks if an role already exists in the system.
     ///
@@ -30,16 +25,16 @@ impl<'a> RoleRepository <'a> {
     /// 'true' if a role with this name exists (and is not deleted)
     pub async fn role_exists_name(&self, name: &str) -> Result<bool> {
         let count = sqlx::query!(
-          r#"
+            r#"
           SELECT COUNT(*)::BIGINT AS count
           FROM roles
           WHERE name = $1
             AND is_deleted = false
           "#,
-          name
-      )
-      .fetch_one(self.pool)
-      .await?;
+            name
+        )
+        .fetch_one(self.pool)
+        .await?;
 
         Ok(count.count > Some(0))
     }
@@ -66,7 +61,6 @@ impl<'a> RoleRepository <'a> {
 
         Ok(count.count > Some(0))
     }
-
 
     /// Retrieves a role by their id.
     ///
@@ -98,7 +92,4 @@ impl<'a> RoleRepository <'a> {
 
         Ok(role)
     }
-
-
-
 }

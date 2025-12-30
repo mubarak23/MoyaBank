@@ -1,8 +1,8 @@
 // API Route handler for user related Endpoints
 use crate::common::common::ApiResponse;
 use crate::common::common::service_error_to_http;
-use crate::db::models::{CreateUser, User, UserWithAccount};
-use crate::service::user_service::UserService;
+use crate::db::models::{CreateRole, NewRole, User};
+use crate::service::role_service::RoleService;
 use axum::{
     extract::{Extension, Json, Path},
     http::StatusCode,
@@ -11,19 +11,19 @@ use axum::{
 use sqlx::PgPool;
 
 #[axum::debug_handler]
-pub async fn create_user(
+pub async fn create_role(
     Extension(pool): Extension<PgPool>,
-    Json(payload): Json<CreateUser>,
-) -> Result<ResponseJson<ApiResponse<UserWithAccount>>, (StatusCode, String)> {
-    tracing::info!("Creating new User");
+    Json(payload): Json<CreateRole>,
+) -> Result<ResponseJson<ApiResponse<NewRole>>, (StatusCode, String)> {
+    tracing::info!("Creating new Role");
 
-    let service = UserService::new(&pool);
+    let service = RoleService::new(&pool);
 
-    match service.create_user(payload).await {
-        Ok(account) => {
-            tracing::debug!("User created successfully: {:?}", account);
+    match service.create_role(payload).await {
+        Ok(role) => {
+            tracing::debug!("Role created successfully: {:?}", role);
             Ok(ResponseJson(ApiResponse::success(
-                account,
+                role,
                 "User created successfully",
             )))
         }

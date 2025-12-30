@@ -1,7 +1,4 @@
-
-
 // ! Global application error types and handlers.
-
 
 use thiserror::Error;
 
@@ -89,4 +86,3 @@ impl ServiceError {
         }
     }
 }
-

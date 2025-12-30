@@ -1,13 +1,13 @@
-// Error handling utils 
-use chrono::{DateTime, Utc};
-use axum::http::StatusCode;
+// Error handling utils
 use crate::errors::ServiceError;
-use std::fmt::Debug;
-use std::str::FromStr;
+use axum::http::StatusCode;
+use chrono::{DateTime, Utc};
 use serde::{
     Deserialize, Serialize,
     de::{DeserializeOwned, Deserializer},
 };
+use std::fmt::Debug;
+use std::str::FromStr;
 use validator::Validate;
 
 // Standard API Response Wrapper
@@ -24,7 +24,6 @@ pub struct ApiResponse<T> {
     /// Request timestamp
     pub timestamp: String,
 }
-
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PaginationMeta {
@@ -114,7 +113,6 @@ pub enum NumericOperator {
     /// Less than
     Lt,
 }
-
 
 pub fn deserialize_states<'de, D, T>(deserializer: D) -> Result<Option<Vec<T>>, D::Error>
 where
@@ -319,7 +317,6 @@ pub fn service_error_to_http(error: ServiceError) -> (StatusCode, String) {
     (status, serde_json::to_string(&error_response).unwrap())
 }
 
-
 /// Formats validator::ValidationErrors into field-specific error details
 pub fn validation_errors_to_field_errors(errors: validator::ValidationErrors) -> Vec<FieldError> {
     errors
@@ -355,4 +352,3 @@ pub fn apply_pagination<T>(items: Vec<T>, pagination: &PaginationFilter) -> Vec<
 
     items.into_iter().skip(offset).take(limit).collect()
 }
-

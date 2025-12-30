@@ -1,25 +1,21 @@
 // DB Repository for transaction management Operations
 
+use crate::common::common::PaginationFilter;
+use crate::db::models::Transaction;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use sqlx::{PgPool, postgres::PgPoolOptions};
-use crate::db::models::Transaction;
-use crate::common::common::PaginationFilter;
-
 
 pub struct TransactionRepository<'a> {
-  // Shared Connection Pool
-  pool: &'a PgPool,
+    // Shared Connection Pool
+    pool: &'a PgPool,
 }
 
-
-
-impl<'a> TransactionRepository <'a> {
-
-  // New connection instance
-  pub fn new(pool: &'a PgPool) -> Self {
-    Self { pool }
-  }
+impl<'a> TransactionRepository<'a> {
+    // New connection instance
+    pub fn new(pool: &'a PgPool) -> Self {
+        Self { pool }
+    }
 
     /// Retrieves transaction by their id.
     ///
@@ -52,11 +48,10 @@ impl<'a> TransactionRepository <'a> {
         Ok(transaction)
     }
 
-
     /// Retrieves the transaction for a specific user.
     ///
     /// # Arguments
-    /// * 'user_id' - User ID 
+    /// * 'user_id' - User ID
     ///
     /// # Returns
     /// 'Some(Transaction)' if transaction exist for user, 'None' otherwise
@@ -68,7 +63,7 @@ impl<'a> TransactionRepository <'a> {
         let limit = pagination.limit();
         let offset = pagination.offset();
 
-       let transactions = sqlx::query_as!(
+        let transactions = sqlx::query_as!(
             Transaction,
             r#"
             SELECT
@@ -94,8 +89,4 @@ impl<'a> TransactionRepository <'a> {
 
         Ok(transactions)
     }
-
-
-
-
 }
