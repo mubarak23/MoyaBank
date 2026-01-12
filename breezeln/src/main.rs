@@ -3,6 +3,7 @@ mod config;
 mod errors;
 mod service;
 mod state;
+mod routes;
 
 use crate::common::common::ApiResponse;
 use axum::{response::Json, routing::get, Extension, Router};
@@ -27,11 +28,14 @@ async fn main() {
         breeze: Arc::new(sdk),
     };
 
-    let app = Router::new().route("/", get(handle_root));
+    let app = Router::new().route("/", get(handle_root))
+    .route("/list_payments", axum::routing::get(routes::invoice::list_payments))
+    .route("/invoice", axum::routing::post(routes::invoice::create_invoice))
+    .with_state(state);
 
-    let bind_address = format!("0.0.0.0:{}", 3005);
+    let bind_address = format!("0.0.0.0:{}", 3016);
     let listener = tokio::net::TcpListener::bind(bind_address).await.unwrap();
-    info!("Breeze server on port {}", 3005);
+    info!("Breeze server on port {}", 3015);
     axum::serve(listener, app).await.unwrap();
 
     println!("Breeze Service!");

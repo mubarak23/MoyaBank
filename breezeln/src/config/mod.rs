@@ -15,7 +15,7 @@ impl Config {
     pub fn from_env() -> Result<Self> {
         dotenvy::dotenv().ok();
 
-        let api_key = env::var("API_KEY").context("API KEY not set")?;
+        let api_key = env::var("SPARK_API_KEY").context("API KEY not set")?;
 
         let mnemonic = env::var("MNEMONIC").context("MNEMONIC must be provided")?;
 
