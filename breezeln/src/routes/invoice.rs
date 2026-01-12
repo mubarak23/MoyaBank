@@ -19,55 +19,51 @@ pub struct PaymentListsResponse {
     pub paymentListsResponse: Vec<Payment>,
 }
 
-#[derive(Serialize)]
-pub enum Payment {
-    Sent { data: PaymentData },
-    Received { data: PaymentData },
-    ClosedChannel { data: PaymentData },
-}
 
-#[derive(Serialize)]
-pub struct PaymentData {
-    pub id: String,
-    pub payment_type: PaymentType,
-    pub amount_msat: u64,
-    pub fee_msat: u64,
-    pub status: PaymentStatus,
-    pub description: Option<String>,
-    pub details: PaymentDetails,
-    pub created_at: i64, 
-}
-
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PaymentType {
     Sent,
-    Received,
-    ClosedChannel,
+    Received
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PaymentStatus {
     Pending,
     Complete,
     Failed,
 }
 
-#[derive(Serialize)]
-pub enum PaymentDetails {
-    Ln {
-        invoice: Option<String>,
-        payment_hash: Option<String>,
-        destination_pubkey: Option<String>,
-        lnurl_success_action: Option<LnUrlSuccessAction>,
-    },
-    Onchain {
-        txid: Option<String>,
-        address: Option<String>,
-    },
-    ClosedChannel {
-        closing_txid: Option<String>,
-    },
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PaymentMethod {
+    Lightning,
+    Onchain,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LightningPaymentDetails {
+  pub description: Option<String>,
+  pub primage: Option<String>,
+  pub invoice: String,
+  pub payment_hash: String,
+  pub destination_pubkey: String,
+  pub lnurl_pay_info: Option<serde_json::Value>,
+  pub lnurl_withdraw_info: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Payment {
+    pub id: String,
+    pub payment_type: PaymentType,
+    pub status: PaymentStatus,
+    pub amount: u64,     
+    pub fees: u64,        
+    pub timestamp: i64,   
+    pub method: PaymentMethod,
+    pub details: Option<LightningPaymentDetails>,
+}
+
+
+
 
 
 pub async fn create_invoice(
