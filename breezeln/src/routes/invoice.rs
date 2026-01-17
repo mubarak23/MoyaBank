@@ -1,6 +1,6 @@
 use axum::{extract::State, Json};
 use breez_sdk_spark::{ReceivePaymentRequest, ReceivePaymentMethod, ListPaymentsRequest,
-   Payment, PrepareSendPaymentRequest, SendPaymentOptions, SendPaymentRequest};
+   Payment, PrepareSendPaymentRequest, SendPaymentOptions, SendPaymentRequest, GetInfoRequest};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use crate::state::AppState;
@@ -19,6 +19,11 @@ pub struct CreateInvoiceResponse {
 #[derive(Serialize)]
 pub struct PayInvoiceRequest {
     pub invoice: String,
+}
+
+#[derive(Serialize)]
+pub struct BalanceResponse {
+    pub balance: u64,
 }
 
 #[derive(Serialize)]
@@ -102,3 +107,16 @@ pub async fn pay_invoice(
   })
 
 }
+
+pub async fn balance(
+  State(state): State<AppState>
+) -> Json<BalanceResponse> {
+  let response = state.breeze.get_info(GetInfoRequest {
+      ensure_synced: Some(false)
+  }) .await;
+
+  Json(BalanceResponse {
+    balance: response.unwrap().balance_sats; 
+  })
+}
+
