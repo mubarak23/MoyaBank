@@ -1,12 +1,15 @@
 // User Service Logic
 //! Handles all account-related business operations
 
+use crate::Config;
 use crate::db::models::UserWithAccount;
-use crate::db::models::{Account, CreateRole, CreateUser, Role, User};
+use crate::db::models::{Account, CreateUser, LoginResponse, User, UserInfo, UserLogin};
 use crate::errors::{ServiceError, ServiceResult};
 use crate::repositories::account_repository::AccountRepository;
 use crate::repositories::role_repository::RoleRepository;
 use crate::repositories::user_repository::UserRepository;
+use crate::utilities::jwt::JwtUtils;
+use bcrypt::verify;
 use sqlx::PgPool;
 use sqlx::types::BigDecimal;
 use uuid::Uuid;
@@ -15,6 +18,8 @@ use validator::Validate;
 // Service layer for User related Operation
 pub struct UserService<'a> {
     pool: &'a PgPool,
+    // jwt_utils: JwtUtils,
+    // config: Config,
 }
 
 impl<'a> UserService<'a> {
@@ -23,6 +28,8 @@ impl<'a> UserService<'a> {
     /// # Arguments
     /// * 'pool' - Reference to SQLite connection pool
     pub fn new(pool: &'a PgPool) -> Self {
+        // let config = Config::from_env();
+        //  let jwt_utils = JwtUtils::new();
         Self { pool }
     }
 
@@ -171,5 +178,111 @@ impl<'a> UserService<'a> {
         let user_with_account = UserWithAccount { account, user };
 
         Ok(user_with_account)
+    }
+
+    /// Authenticate user and generate JWT tokens with node credentials if available
+    pub async fn login(&self, login_request: UserLogin) -> ServiceResult<LoginResponse> {
+        // Validate input
+        if let Err(validation_errors) = login_request.validate() {
+            let error_messages: Vec<String> = validation_errors
+                .field_errors()
+                .into_iter()
+                .flat_map(|(field, errors)| {
+                    errors.iter().map(move |error| {
+                        format!(
+                            "{}: {}",
+                            field,
+                            error.message.as_ref().unwrap_or(&"Invalid value".into())
+                        )
+                    })
+                })
+                .collect();
+            return Err(ServiceError::validation(error_messages.join(", ")));
+        }
+
+        // Authenticate user using UserService
+
+        let user = self
+            .authenticate_user(&login_request.email, &login_request.password)
+            .await?;
+
+        // Get account information
+        let account_repo = AccountRepository::new(self.pool);
+        let account = account_repo
+            .get_accoount_by_user_id(&user.id)
+            .await?
+            .ok_or_else(|| ServiceError::not_found("Account", &user.id))?;
+
+        // Check if account is active
+        if !account.is_active {
+            return Err(ServiceError::validation("Account is inactive".to_string()));
+        }
+
+        // Store user ID before potential moves
+        let user_id = user.id.clone();
+        let account_id = account.id.clone();
+        let user_role_id = user.role_id.clone();
+
+        // Get Role Information
+        let role_repo = RoleRepository::new(self.pool);
+        let role = role_repo
+            .get_role_id(&user_role_id)
+            .await?
+            .ok_or_else(|| ServiceError::not_found("Role", &user_role_id))?;
+
+        // Generate tokens with node credentials if available
+        let jwt_utils = JwtUtils::new();
+        let access_token =
+            jwt_utils?.generate_token(user_id.clone(), account_id.clone(), role.name.clone())?;
+
+        let refresh_token =
+            JwtUtils::new()?.generate_refresh_token(user_id.clone(), user_role_id.clone())?;
+
+        // Get expires_in from config
+        let config = Config::from_env().unwrap();
+        let expires_in = config.jwt_expires_in_seconds;
+
+        let user_info = UserInfo {
+            id: user_id,
+            username: user.username,
+            email: user.email,
+            account_id,
+            role: role.name.clone(),
+        };
+
+        Ok(LoginResponse {
+            access_token: access_token.to_string(),
+            refresh_token,
+            user: user_info,
+            expires_in,
+        })
+    }
+
+    pub async fn authenticate_user(&self, email: &str, password: &str) -> ServiceResult<User> {
+        let user_repo = UserRepository::new(self.pool);
+        // Get user by username
+        let user = user_repo
+            .get_user_by_email(email)
+            .await?
+            .ok_or_else(|| ServiceError::validation("Invalid credentials".to_string()))?;
+
+        // Check if user is active
+        if !user.is_active {
+            return Err(ServiceError::validation("Invalid credentials".to_string()));
+        }
+
+        // Verify password
+        if !self.verify_password(password, &user.password_hash)? {
+            return Err(ServiceError::validation(
+                "Invalid username or password".to_string(),
+            ));
+        }
+
+        Ok(user)
+    }
+
+    fn verify_password(&self, password: &str, hash: &str) -> ServiceResult<bool> {
+        verify(password, hash)
+            .map_err(|e| ServiceError::validation(format!("Password verification failed: {e}")))
     }
 }

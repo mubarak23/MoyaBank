@@ -2,7 +2,6 @@
 use crate::config::Config;
 use anyhow::Result;
 use sqlx::{PgPool, postgres::PgPoolOptions};
-use std::time::Duration;
 
 pub mod models;
 

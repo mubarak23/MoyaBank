@@ -3,7 +3,7 @@
 use crate::db::models::Role;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use sqlx::{PgPool, postgres::PgPoolOptions};
+use sqlx::PgPool;
 
 pub struct RoleRepository<'a> {
     // Shared Connection Pool

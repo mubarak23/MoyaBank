@@ -40,6 +40,34 @@ pub struct CreateUser {
     pub role_id: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
+pub struct UserLogin {
+    #[validate(
+        email(message = "Must be a valid email"),
+        length(max = 255, message = "Email too long")
+    )]
+    pub email: String,
+    #[validate(length(min = 1, message = "Password is required"))]
+    pub password: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct LoginResponse {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub user: UserInfo,
+    pub expires_in: u64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UserInfo {
+    pub id: String,
+    pub username: String,
+    pub email: String,
+    pub account_id: String,
+    pub role: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserWithAccount {
     pub user: User,

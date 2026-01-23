@@ -7,6 +7,7 @@ mod db;
 mod errors;
 mod repositories;
 mod service;
+mod utilities;
 
 use crate::common::common::ApiResponse;
 use axum::{Extension, Router, response::Json, routing::get};
@@ -32,9 +33,9 @@ async fn main() {
         .nest("/api/role", api::role::routes::role_router().await)
         .layer(Extension(pool));
 
-    let bind_address = format!("0.0.0.0:{}", 3005);
+    let bind_address = format!("0.0.0.0:{}", 3035);
     let listener = tokio::net::TcpListener::bind(bind_address).await.unwrap();
-    info!("Started Moyabank  server on port {}", 3005);
+    info!("Started Moyabank  server on port {}", 3035);
     axum::serve(listener, app).await.unwrap();
 
     //  println!("Hello, world!");
