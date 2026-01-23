@@ -1,8 +1,7 @@
 // DB Repository for user management operations
 
 use anyhow::Result;
-use chrono::{DateTime, Utc};
-use sqlx::{PgPool, postgres::PgPoolOptions};
+use sqlx::PgPool;
 
 use crate::db::models::User;
 
@@ -78,6 +77,36 @@ impl<'a> UserRepository<'a> {
               AND is_deleted = false
             "#,
             username
+        )
+        .fetch_optional(self.pool)
+        .await?;
+
+        Ok(user)
+    }
+
+    /// Retrieves a user by their username.
+    ///
+    /// Returns `Some(User)` if found and active, `None` otherwise.
+    pub async fn get_user_by_email(&self, email: &str) -> Result<Option<User>> {
+        let user = sqlx::query_as!(
+            User,
+            r#"
+            SELECT
+                id,
+                role_id,
+                username,
+                password_hash,
+                email,
+                is_active,
+                created_at,
+                updated_at,
+                is_deleted,
+                deleted_at
+            FROM users
+            WHERE email = $1
+              AND is_deleted = false
+            "#,
+            email
         )
         .fetch_optional(self.pool)
         .await?;

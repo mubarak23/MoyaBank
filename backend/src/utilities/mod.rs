@@ -1,75 +1,76 @@
-
+use crate::errors::LightningError;
 use bitcoin::Txid;
 use bitcoin::secp256k1::PublicKey;
-use serde::{Deserialize, Deserializer, Serialize};
-use std::str::FromStr;
-use std::fmt::{Formatter, Display};
 use expanduser::expanduser;
 use lightning::ln::features::NodeFeatures;
-use std::collection::HashMap;
-use crate::errors::LightningError;
+use serde::{Deserialize, Deserializer, Serialize};
+use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
+use std::str::FromStr;
 
-#[derive(Serialize, Debug, Clone)]
-pub enum NodeId {
-  PublicKey(PublicKey),
-  Alias(String)
-}
+pub mod jwt;
 
-impl NodeId {
-  pub fn validate(&self, node_id: &PublicKey, alias: &mut String) -> Result<(), LightningError> {
-      match self {
-        NodeId::PublicKey(pk) => {
-           if pk != node_id {
-                    return Err(LightningError::ValidationError(format!(
-                        "The provided node id does not match the one returned by the backend ({pk} != {node_id})"
-                    )));
-                }
-        }
-        NodeId::Alias(as) => {
-          if as != alias {
-                    return Err(LightningError::ValidationError(format!(
-                        "The provided alias does not match the one returned by the backend ({as} != {alias})"
-                    )));
-                }
-        }
-      }
-      Ok(())
-  }
-}
+// #[derive(Serialize, Debug, Clone)]
+// pub enum NodeId {
+//   PublicKey(PublicKey),
+//   Alias(String)
+// }
 
-impl std::fmt::Display for NodeId {
-     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                NodeId::PublicKey(pk) => pk.to_string(),
-                NodeId::Alias(a) => a.to_owned(),
-            }
-        )
-    }
-}
+// impl NodeId {
+//   pub fn validate(&self, node_id: &PublicKey, alias: &mut String) -> Result<(), LightningError> {
+//       match self {
+//         NodeId::PublicKey(pk) => {
+//            if pk != node_id {
+//                     return Err(LightningError::ValidationError(format!(
+//                         "The provided node id does not match the one returned by the backend ({pk} != {node_id})"
+//                     )));
+//                 }
+//         }
+//         NodeId::Alias(r#as) => {
+//           if r#as != alias {
+//                     return Err(LightningError::ValidationError(format!(
+//                         "The provided alias does not match the one returned by the backend ({as} != {alias})"
+//                     )));
+//                 }
+//         }
+//       }
+//       Ok(())
+//   }
+// }
 
-#[derive(Serialize, Deserialize Debug, Clone)]
-pub struct NodeInfo {
-    pub pubkey: PublicKey,
-    pub alias: String,
+// impl std::fmt::Display for NodeId {
+//      fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+//         write!(
+//             f,
+//             "{}",
+//             match self {
+//                 NodeId::PublicKey(pk) => pk.to_string(),
+//                 NodeId::Alias(a) => a.to_owned(),
+//             }
+//         )
+//     }
+// }
 
-    #[serde(with = "node_features_serde")]
-    pub features: NodeFeatures
-}
+// #[derive(Serialize, Deserialize, Debug, Clone)]
+// pub struct NodeInfo {
+//     pub pubkey: PublicKey,
+//     pub alias: String,
 
-impl Display for NodeInfo {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    let pk = self.pubkey.to_string();
-    let pk_summary = format!("{}...{}", &pk[..6], &pk[pk.len() - 6..]);
-    if self.alias.is_empty() {
-       write!(f, "{pk_summary}")
-    } else {
-       write!(f, "{}({})", self.alias, pk_summary)
-    }
-  }
-}
+//     #[serde(with = "node_features_serde")]
+//     pub features: NodeFeatures
+// }
+
+// impl Display for NodeInfo {
+//   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+//     let pk = self.pubkey.to_string();
+//     let pk_summary = format!("{}...{}", &pk[..6], &pk[pk.len() - 6..]);
+//     if self.alias.is_empty() {
+//        write!(f, "{pk_summary}")
+//     } else {
+//        write!(f, "{}({})", self.alias, pk_summary)
+//     }
+//   }
+// }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CustomInvoice {
@@ -87,9 +88,8 @@ pub struct CustomInvoice {
     pub is_amp: Option<bool>,
     pub payment_addr: Option<String>,
     pub htlcs: Option<Vec<InvoiceHtlc>>,
-    pub features: Option<HashMap<u32, Feature>>,
+    //  pub features: Option<HashMap<u32, Feature>>,
 }
-
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum PaymentType {
@@ -107,7 +107,6 @@ pub enum InvoiceStatus {
     Failed,
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InvoiceHtlc {
     pub chan_id: Option<u64>,
@@ -121,7 +120,7 @@ pub struct InvoiceHtlc {
 
 #[derive(Debug, Serialize)]
 pub struct ChannelSummary {
-    pub chan_id: ShortChannelID,
+    //  pub chan_id: ShortChannelID,
     pub alias: Option<String>,
     pub channel_state: ChannelState,
     pub private: bool,
@@ -134,16 +133,14 @@ pub struct ChannelSummary {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub enum ChannelState {
-    Opening, 
+    Opening,
     #[default]
-    Active, 
-    Disabled, 
-    Closing, 
-    Closed,  
-    Failed,  
+    Active,
+    Disabled,
+    Closing,
+    Closed,
+    Failed,
 }
-
-
 
 pub mod serde_address {
     use super::*;
@@ -168,7 +165,6 @@ pub mod serde_address {
     }
 }
 
-
 pub fn deserialize_path<'de, D>(deserializer: D) -> Result<String, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -179,4 +175,3 @@ where
         .display()
         .to_string())
 }
-

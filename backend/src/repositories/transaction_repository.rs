@@ -4,7 +4,7 @@ use crate::common::common::PaginationFilter;
 use crate::db::models::Transaction;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use sqlx::{PgPool, postgres::PgPoolOptions};
+use sqlx::PgPool;
 
 pub struct TransactionRepository<'a> {
     // Shared Connection Pool

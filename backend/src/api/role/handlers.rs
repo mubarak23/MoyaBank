@@ -1,10 +1,10 @@
 // API Route handler for user related Endpoints
 use crate::common::common::ApiResponse;
 use crate::common::common::service_error_to_http;
-use crate::db::models::{CreateRole, NewRole, User};
+use crate::db::models::{CreateRole, NewRole};
 use crate::service::role_service::RoleService;
 use axum::{
-    extract::{Extension, Json, Path},
+    extract::{Extension, Json},
     http::StatusCode,
     response::Json as ResponseJson,
 };
